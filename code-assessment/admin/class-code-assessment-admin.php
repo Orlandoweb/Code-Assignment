@@ -149,7 +149,6 @@ class Code_Assessment_Admin {
 		$number_of_posts = !empty(get_option( 'number_of_posts' )) ? get_option( 'number_of_posts' ) : 10;
 		if( 'all' === $site_key ) {
 			$transient = get_transient('code_assessment_most_recent_posts_'.$site_key);
-			$transient = '';
 			if (! empty($transient)) {
 				return json_decode($transient, true);
 			} else {
@@ -176,7 +175,6 @@ class Code_Assessment_Admin {
 			}
 		} else {
 			$transient = get_transient('code_assessment_most_recent_posts_'.$site_key);
-			$transient = '';
 			if (! empty($transient)) {
 				return json_decode($transient, true);
 			} else {
@@ -216,6 +214,15 @@ class Code_Assessment_Admin {
 		wp_add_dashboard_widget( 'code_assessment_recent_posts', __( 'Recent Posts' ), array($this, 'code_assessment_recent_posts_callback') );
 	}
 
+	public function get_added_post_ids_from_api( ) {
+		$option_name = 'added_post_from_api' ;
+		$ids = '';
+		if ( get_option( $option_name ) !== false ) {
+			$ids = get_option( $option_name );
+		}
+		return $ids;
+	}
+
 	public function code_assessment_recent_posts_callback() {
 		$active_tab = 'all';
 		if( isset( $_GET[ 'ca-recent-posts-tab' ] ) ) {
@@ -224,6 +231,7 @@ class Code_Assessment_Admin {
 		$get_recent_posts = $this->get_most_recently_published_posts_data($active_tab);
 		$get_sites = $this->default_sites();
 		$admin_url = get_admin_url();
+		$get_added_post_ids_from_api = $this->get_added_post_ids_from_api();
 		?>
 		<h2 class="code-assessment-recent-posts-nav nav-tab-wrapper">
 			<a href="<?php echo esc_url($admin_url)?>" class="nav-tab <?php echo $active_tab == 'all' ? 'nav-tab-active' : ''; ?>">Default</a>
@@ -248,6 +256,9 @@ class Code_Assessment_Admin {
 				<tbody>
 				<?php
 				foreach ($get_recent_posts as $key => $value) {
+					if( in_array($value['id'],$get_added_post_ids_from_api)) {
+						continue;
+					}
 					?>
 					<tr>
 						<td class="column-primary" data-colname="Title">
@@ -255,7 +266,7 @@ class Code_Assessment_Admin {
 						</td>
 
 						<td data-colname="Action">
-							<a class="add-to-posts" data-id="<?php echo esc_html($value['id']); ?>" href="<?php echo $admin_url;?>?add-to-post=<?php echo esc_html($value['id']); ?>">Add</a>
+							<a class="add-to-posts" data-id="<?php echo esc_html($value['id']); ?>" href="javascript;">Add</a>
 						</td>
 					</tr>
 					<?php
@@ -284,7 +295,63 @@ class Code_Assessment_Admin {
 		<?php
 	}
 
-	public function add_new_post() {
 
+	public function update_added_post_from_api( $id ) {
+		$option_name = 'added_post_from_api' ;
+
+		if ( get_option( $option_name ) !== false ) {
+			$value = get_option( $option_name );
+			$value[] = $id;
+			update_option( $option_name, $value );
+		} else {
+			$deprecated = null;
+			$autoload = 'no';
+			$value[] = $id;
+			add_option( $option_name,  $value, $deprecated, $autoload );
+		}
+	}
+
+	public function add_new_post() {
+		if($_POST) :
+
+			check_ajax_referer('ca-default', 'token');
+			$id = $_POST['id'];
+			$response = array(
+				'success' => false,
+				'id' => $id,
+				'message' => '',
+			);
+			$transient = get_transient('code_assessment_most_recent_posts_all');
+			$data = json_decode($transient, true);
+			$found = array_search($id, array_column($data, 'id'));
+			if(isset($found) ) {
+				$date_gmt = $data[$found]['date_gmt'];
+				$title = $data[$found]['title']['rendered'];
+				$content = $data[$found]['content']['rendered'];
+				$type = $data[$found]['type'];
+				// Gather post data.
+				$add_post = array(
+					'post_type' =>'post',
+					'post_title'    => $title,
+					'post_content'  => $content,
+					'post_status'   => 'publish',
+				);
+
+				$success = wp_insert_post( $add_post );
+				if( $success && ! is_wp_error($success)) {
+					$current_user = wp_get_current_user();
+					update_post_meta($success,'post_type',$type);
+					update_post_meta($success,'post_time',$date_gmt);
+					update_post_meta($success,'post_approved_by',$current_user->user_login);
+					$response['success'] = true;
+					$this->update_added_post_from_api( $id );
+				}
+			} else {
+				$response['message'] = 'Data not found';
+			}
+			echo json_encode($response);
+		endif;
+
+		die();
 	}
 }

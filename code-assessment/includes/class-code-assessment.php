@@ -159,7 +159,7 @@ class Code_Assessment {
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'make_admin_menu', 19 );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'update_admin_menu_info', 19 );
 		$this->loader->add_action( 'wp_dashboard_setup', $plugin_admin, 'show_dashboard_posts', 19 );
-		$this->loader->add_action( 'wp_ajax_new_post', $plugin_admin, 'add_new_post', 19 );
+		$this->loader->add_action( 'wp_ajax_add_new_post', $plugin_admin, 'add_new_post', 19 );
 	}
 
 	/**

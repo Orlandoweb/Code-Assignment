@@ -36,7 +36,45 @@
             'order': [[ 1, 'asc' ]],
             'pagingType': 'simple',
             'oSearch': {'sSearch': title}
-        })
+        });
+
+        $('body').on('click', '.add-to-posts', function(e){
+            e.preventDefault();
+            $(this).html('Adding...').prop('disabled', true);
+            var token = ajax_post_object.tokens.default;
+            var formdata =  new FormData();
+            var id = $(this).attr('data-id');
+            formdata.append('token', token);
+            formdata.append('action', 'add_new_post');
+            formdata.append('id', id);
+            var form = new CAForm(formdata);
+            form.submitForm(callback);
+        });
+
+        function CAForm(formdata) {
+            this.formdata = formdata;
+        }
+
+        function callback(data) {
+            if(data.message!='') {
+                console.log(data.message);
+            }
+        }
+
+        CAForm.prototype.submitForm = function(callback) {
+            jQuery.ajax({
+                type: 'POST',
+                dataType: 'json',
+                url: ajax_post_object.ajaxurl,
+                data: this.formdata,
+                contentType: false,
+                processData: false,
+                success: function(data){
+                    if(callback)
+                        location.reload();
+                }
+            });
+        }
     });
 
 
